@@ -70,11 +70,6 @@ class JSONStrategy(BaseStrategy):
         return self.huffman.decode(encoded_data, metadata['huffman_tree'])
 
     def reconstruct(self, tokens: List[Any]) -> Any:
-        # Simplified reconstruction state machine
-        # In a full impl, this needs a stack
-        # For MVP, we will assume valid structure and just parse back
-        # This is complex to do iteratively without a parser, 
-        # so we'll implement a recursive consumer.
         self.token_iter = iter(tokens)
         return self._consume()
 
@@ -87,15 +82,159 @@ class JSONStrategy(BaseStrategy):
         if token == "{":
             obj = {}
             while True:
-                # Peek or next
-                # We need to handle keys or end
-                # This is tricky with iterators. 
-                # Let's assume next token is Key or }
-                # But we consumed it.
-                # Real parser needs lookahead.
-                # For this MVP, let's hack:
-                # If next is "}", break.
-                # Else it's a key.
-                pass # TODO: Full parser logic
-            return {}
+                # Peek would be better, but with iter we just grab next
+                # If next is "}", we are done.
+                # If next is K<id>, it's a key.
+                # We need to handle the case where the dict is empty "{}".
+                # But our tokenizer always puts keys or } immediately.
+                
+                # However, since we can't peek easily with a simple iterator without buffering,
+                # we have to be careful. 
+                # Let's assume the token stream is valid.
+                
+                # We can't easily peek, so we might need to grab the next token and decide.
+                # But if we grab it and it's a key, we need to process it.
+                # If it's "}", we return.
+                
+                # To make this robust without peek, we can assume that after "{", 
+                # we either have "}" or a Key.
+                
+                # Let's try to implement a peekable iterator wrapper or just handle it here.
+                # Actually, we can just grab the next token.
+                
+                key_token = next(self.token_iter)
+                
+                if key_token == "}":
+                    return obj
+                
+                # It must be a key
+                if isinstance(key_token, str) and key_token.startswith("K"):
+                    key_id = int(key_token[1:])
+                    key = self.dict_encoder.get_value(key_id)
+                    
+                    # Value is next
+                    value = self._consume()
+                    obj[key] = value
+                else:
+                    raise ValueError(f"Expected Key or }} but got {key_token}")
+            return obj
+
+        elif token == "[":
+            arr = []
+            while True:
+                # Similar logic for arrays.
+                # We need to check if next is "]".
+                # But we can't peek.
+                # Wait, for arrays, we don't have keys.
+                # So we can't distinguish between "End of Array" and "Start of Next Element" 
+                # solely by type easily unless we check for "]".
+                
+                # We need a way to peek.
+                # Let's buffer one token.
+                
+                # Actually, let's change the architecture slightly to use a list and index
+                # or a peekable iterator.
+                # Since we are already in this method, let's just hack a peek.
+                pass 
+                # This approach with raw iterator is flawed for "while True".
+                # We need to change how we iterate.
+                
+            # RE-IMPLEMENTING WITH LIST INDEXING FOR SIMPLICITY
+            pass
+
+    def reconstruct(self, tokens: List[Any]) -> Any:
+        self.tokens = tokens
+        self.pos = 0
+        return self._parse_value()
+
+    def _peek(self):
+        if self.pos < len(self.tokens):
+            return self.tokens[self.pos]
         return None
+
+    def _advance(self):
+        if self.pos < len(self.tokens):
+            t = self.tokens[self.pos]
+            self.pos += 1
+            return t
+        return None
+
+    def _parse_value(self):
+        token = self._advance()
+        if token is None:
+            return None
+
+        if token == "{":
+            return self._parse_object()
+        elif token == "[":
+            return self._parse_array()
+        elif isinstance(token, str):
+            if token.startswith("S:"):
+                return token[2:]
+            elif token.startswith("I:"):
+                return int(token[2:])
+            elif token.startswith("B:"):
+                return token[2:] == "True"
+            elif token == "NULL":
+                return None
+            elif token == "DELTA_INT_SEQ":
+                # The next tokens are D<val> until ]
+                # Actually, our tokenizer puts DELTA_INT_SEQ then D... then ]
+                # But wait, the tokenizer puts [ then DELTA_INT_SEQ then D... then ]
+                # Let's check tokenize method.
+                # It puts [ then DELTA_INT_SEQ.
+                # So if we hit [, we call _parse_array.
+                # Inside _parse_array, we might see DELTA_INT_SEQ.
+                pass
+        
+        return token # Should not happen if fully covered
+
+    def _parse_object(self):
+        obj = {}
+        while True:
+            t = self._peek()
+            if t == "}":
+                self._advance()
+                return obj
+            
+            # Expect Key
+            key_token = self._advance()
+            if not isinstance(key_token, str) or not key_token.startswith("K"):
+                 raise ValueError(f"Expected Key, got {key_token}")
+            
+            key_id = int(key_token[1:])
+            key = self.dict_encoder.get_value(key_id)
+            
+            val = self._parse_value()
+            obj[key] = val
+
+    def _parse_array(self):
+        arr = []
+        
+        # Check for special Delta Encoding
+        if self._peek() == "DELTA_INT_SEQ":
+            self._advance() # consume marker
+            # Now we expect D<val> until ]
+            deltas = []
+            while True:
+                t = self._peek()
+                if t == "]":
+                    self._advance()
+                    break
+                
+                dt = self._advance()
+                if isinstance(dt, str) and dt.startswith("D"):
+                    deltas.append(int(dt[1:]))
+                else:
+                    raise ValueError(f"Expected Delta, got {dt}")
+            
+            return DeltaEncoder.decode(deltas)
+
+        while True:
+            t = self._peek()
+            if t == "]":
+                self._advance()
+                return arr
+            
+            val = self._parse_value()
+            arr.append(val)

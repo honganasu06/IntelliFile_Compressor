@@ -60,12 +60,13 @@ def main():
             print("="*40)
             print(f"Input File:      {file_name}")
             print(f"Output File:     {os.path.basename(output_path)}")
-            print(f"Location:        {output_dir}")
+            print(f"Location:        {os.path.abspath(output_dir)}")
             print("-" * 40)
             print(f"Compressed Size: {compressed_size:,} bytes")
             print(f"Restored Size:   {restored_size:,} bytes")
             print(f"Time Taken:      {duration:.4f} seconds")
             print("="*40)
+            print(f"\n[INFO] File saved to: {os.path.abspath(output_path)}")
             
         except Exception as e:
             print(f"\nERROR: Decompression failed - {e}")
@@ -96,13 +97,14 @@ def main():
             print("="*40)
             print(f"Input File:      {file_name}")
             print(f"Output File:     {os.path.basename(output_path)}")
-            print(f"Location:        {output_dir}")
+            print(f"Location:        {os.path.abspath(output_dir)}")
             print("-" * 40)
             print(f"Original Size:   {original_size:,} bytes")
             print(f"Compressed Size: {compressed_size:,} bytes")
             print(f"Reduction:       {ratio:.2f}%")
             print(f"Time Taken:      {duration:.4f} seconds")
             print("="*40)
+            print(f"\n[INFO] File saved to: {os.path.abspath(output_path)}")
             
         except ValueError as ve:
             print(f"\nERROR: {ve}")

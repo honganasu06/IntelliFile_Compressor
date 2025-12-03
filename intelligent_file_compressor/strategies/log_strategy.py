@@ -91,4 +91,50 @@ class LogStrategy(BaseStrategy):
         return self.huffman.decode(encoded_data, metadata['huffman_tree'])
 
     def reconstruct(self, tokens: List[Any]) -> Any:
-        return []
+        lines = []
+        current_ts = 0
+        
+        # Reverse severity map
+        sev_map_rev = {v: k for k, v in self.SEVERITY_MAP.items()}
+        
+        iterator = iter(tokens)
+        
+        while True:
+            try:
+                t = next(iterator)
+            except StopIteration:
+                break
+                
+            if isinstance(t, str) and t.startswith("D"):
+                # Delta Timestamp
+                delta = int(t[1:])
+                current_ts += delta
+                dt = datetime.fromtimestamp(current_ts)
+                ts_str = dt.isoformat(sep=' ')
+                
+                # Next should be SEV
+                sev_token = next(iterator)
+                sev_str = "UNKNOWN"
+                if isinstance(sev_token, str) and sev_token.startswith("SEV:"):
+                    code_str = sev_token.split(":")[1]
+                    if code_str == "UNKNOWN":
+                        sev_str = ""
+                    else:
+                        code = int(code_str)
+                        sev_str = sev_map_rev.get(code, "UNKNOWN")
+                
+                # Next should be MSG
+                msg_token = next(iterator)
+                msg_str = ""
+                if isinstance(msg_token, str) and msg_token.startswith("MSG:"):
+                    msg_str = msg_token[4:]
+                    
+                line = f"{ts_str} {sev_str} {msg_str}".strip()
+                # Fix double spaces if sev is empty
+                line = re.sub(r'\s+', ' ', line)
+                lines.append(line)
+                
+            elif isinstance(t, str) and t.startswith("RAW:"):
+                lines.append(t[4:])
+                
+        return "\n".join(lines)
