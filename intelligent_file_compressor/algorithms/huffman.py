@@ -1,6 +1,7 @@
 import heapq
 from collections import Counter
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Iterator
+from ..utils.bit_stream import BitWriter, BitReader
 
 class HuffmanNode:
     def __init__(self, char, freq):
@@ -24,6 +25,7 @@ class HuffmanEncoder:
         """Build Huffman tree and return codebook."""
         # Convert tokens to string keys for frequency counting
         freq = Counter(str(t) for t in tokens)
+        self.total_tokens = sum(freq.values())
         
         heap = []
         for key, count in freq.items():
@@ -60,50 +62,48 @@ class HuffmanEncoder:
         self._make_codes(node.left, current_code + "0")
         self._make_codes(node.right, current_code + "1")
 
-    def encode(self, tokens: List[Any]) -> Tuple[bytes, Dict[str, str]]:
-        """
-        Encodes tokens into bytes. Returns (compressed_bytes, codebook).
-        """
-        self.codes = {}
-        self.reverse_mapping = {}
+    def train(self, tokens: Iterator[Any]):
+        """Builds the Huffman tree from tokens."""
         self.build_tree(tokens)
-        
-        bit_string = ""
-        for token in tokens:
-            bit_string += self.codes[str(token)]
-            
-        # Padding
-        extra_padding = 8 - len(bit_string) % 8
-        bit_string = "{0:08b}".format(extra_padding) + bit_string + ("0" * extra_padding)
 
-        b = bytearray()
-        for i in range(0, len(bit_string), 8):
-            b.append(int(bit_string[i:i+8], 2))
-            
-        return bytes(b), self.reverse_mapping
-
-    def decode(self, data: bytes, codebook: Dict[str, str]) -> List[str]:
+    def encode(self, tokens: Iterator[Any], writer: BitWriter):
         """
-        Decodes bytes back to token keys (strings).
-        Caller must convert keys back to original types if needed.
+        Encodes tokens into the bit writer using existing tree.
+        """
+        if not self.codes:
+            raise ValueError("Huffman tree not built. Call train() first.")
+            
+        for token in tokens:
+            code = self.codes.get(str(token))
+            if code is None:
+                # Fallback or error? For now, error.
+                # In a robust system, we might have an UNKNOWN token.
+                raise KeyError(f"Token '{token}' not found in Huffman tree.")
+            writer.write_string(code)
+
+    def decode(self, reader: BitReader, codebook: Dict[str, str], limit: int = None) -> List[str]:
+        """
+        Decodes bits back to token keys (strings).
         """
         self.reverse_mapping = codebook
-        
-        bit_string = ""
-        for byte in data:
-            bit_string += f"{byte:08b}"
-
-        extra_padding = int(bit_string[:8], 2)
-        bit_string = bit_string[8:]
-        if extra_padding > 0:
-            bit_string = bit_string[:-extra_padding]
-
         decoded = []
         current_code = ""
-        for bit in bit_string:
-            current_code += bit
-            if current_code in self.reverse_mapping:
-                decoded.append(self.reverse_mapping[current_code])
-                current_code = ""
+        
+        # This is a naive decoding. A better way is to traverse the tree.
+        # But for now, we stick to the map lookup for simplicity of refactor.
+        # We read bit by bit.
+        
+        try:
+            while True:
+                if limit is not None and len(decoded) >= limit:
+                    break
+                    
+                bit = reader.read_bit()
+                current_code += str(bit)
+                if current_code in self.reverse_mapping:
+                    decoded.append(self.reverse_mapping[current_code])
+                    current_code = ""
+        except EOFError:
+            pass
                 
         return decoded

@@ -1,6 +1,6 @@
 import struct
 import json
-from typing import Dict, Any
+from typing import Dict, Any, BinaryIO
 
 class IFCWriter:
     """
@@ -11,14 +11,12 @@ class IFCWriter:
     VERSION = 1
 
     @staticmethod
-    def write(output_path: str, strategy_id: int, metadata: Dict[str, Any], compressed_data: bytes):
+    def write_header(f: BinaryIO, strategy_id: int, metadata: Dict[str, Any]):
         meta_bytes = json.dumps(metadata).encode('utf-8')
         meta_len = len(meta_bytes)
 
-        with open(output_path, 'wb') as f:
-            f.write(IFCWriter.MAGIC)
-            f.write(struct.pack('B', IFCWriter.VERSION))
-            f.write(struct.pack('B', strategy_id))
-            f.write(struct.pack('>I', meta_len)) # Big-endian 4-byte int
-            f.write(meta_bytes)
-            f.write(compressed_data)
+        f.write(IFCWriter.MAGIC)
+        f.write(struct.pack('B', IFCWriter.VERSION))
+        f.write(struct.pack('B', strategy_id))
+        f.write(struct.pack('>I', meta_len)) # Big-endian 4-byte int
+        f.write(meta_bytes)

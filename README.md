@@ -1,4 +1,4 @@
-# Intelligent File Compressor (IFC) - Technical Documentation
+# IntelliFile Compressor (IFC) - Technical Documentation
 
 **Version**: 1.0.0
 **Status**: Stable / Educational
@@ -20,7 +20,7 @@
 
 ## � Project Overview
 
-The **Intelligent File Compressor (IFC)** is a research-grade compression tool that demonstrates **Semantic Compression**. Unlike traditional algorithms (Deflate, LZMA) that operate on raw byte streams, IFC parses the *structure* of data files to apply context-aware optimizations.
+The **IntelliFile Compressor (IFC)** is a research-grade compression tool that demonstrates **Semantic Compression**. Unlike traditional algorithms (Deflate, LZMA) that operate on raw byte streams, IFC parses the *structure* of data files to apply context-aware optimizations.
 
 ### Core Philosophy
 > "Data is not just bytes; it is information. By understanding the information, we can store it more efficiently."

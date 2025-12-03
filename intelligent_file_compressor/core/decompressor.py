@@ -1,5 +1,6 @@
 import json
 from ..storage.reader import IFCReader
+from ..utils.bit_stream import BitReader
 from ..strategies.json_strategy import JSONStrategy
 from ..strategies.text_strategy import TextStrategy
 from ..strategies.csv_strategy import CSVStrategy
@@ -37,7 +38,10 @@ class Decompressor:
                 strategy.dict_encoders[int(k)] = enc
         
         # 3. Decode
-        tokens = strategy.decode(compressed_data, metadata)
+        if isinstance(strategy, TextStrategy):
+            tokens = strategy.decode(BitReader(compressed_data), metadata)
+        else:
+            tokens = strategy.decode(compressed_data, metadata)
         
         # 4. Reconstruct
         data = strategy.reconstruct(tokens)
